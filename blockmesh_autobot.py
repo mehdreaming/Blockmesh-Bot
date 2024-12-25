@@ -5,7 +5,7 @@ import threading
 import random
 import websocket
 from datetime import datetime
-from colorama import init, Fore, Back, Style
+from colorama import init, Fore, Style
 
 init(autoreset=True)
 
@@ -13,7 +13,7 @@ def print_banner():
     banner = f"""
 {Fore.CYAN}{Style.BRIGHT}╔══════════════════════════════════════════════╗
 ║          BlockMesh Network AutoBot           ║
-║     Github: https://github.com/mehdreaming   ║
+║     Github: https://github.com/IM-Hanzou     ║
 ║      Welcome and do with your own risk!      ║
 ╚══════════════════════════════════════════════╝
 """
@@ -134,46 +134,6 @@ def get_and_submit_task(email, api_token, ip_info, proxy_config):
     except requests.RequestException as err:
         print(f"{Fore.LIGHTCYAN_EX}[{datetime.now().strftime('%H:%M:%S')}]{Fore.RED} Failed to process task: {err}")
 
-print_banner()
-print(f"{Fore.YELLOW}Please Login to your Blockmesh Account first.{Style.RESET_ALL}\n")
-email_input = input(f"{Fore.LIGHTBLUE_EX}Enter Email: {Style.RESET_ALL}")
-password_input = input(f"{Fore.LIGHTBLUE_EX}Enter Password: {Style.RESET_ALL}")
-
-login_endpoint = "https://api.blockmesh.xyz/api/get_token"
-report_endpoint = "https://app.blockmesh.xyz/api/report_uptime?email={email}&api_token={api_token}&ip={ip}"
-
-login_headers = {
-    "accept": "*/*",
-    "content-type": "application/json",
-    "origin": "https://app.blockmesh.xyz",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-}
-
-report_headers = {
-    "accept": "*/*",
-    "content-type": "text/plain;charset=UTF-8",
-    "origin": "chrome-extension://obfhoiefijlolgdmphcekifedagnkfjp",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-}
-
-submit_headers = {
-    "accept": "*/*",
-    "content-type": "application/json",
-    "origin": "chrome-extension://obfhoiefijlolgdmphcekifedagnkfjp",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-}
-
-proxy_list_path = "proxies.txt"
-proxies_list = []
-
-if os.path.exists(proxy_list_path):
-    with open(proxy_list_path, "r") as file:
-        proxies_list = file.read().splitlines()
-        print(f"{Fore.GREEN}[✓] Loaded {len(proxies_list)} proxies from proxies.txt")
-else:
-    print(f"{Fore.RED}[×] proxies.txt not found!")
-    exit()
-
 def format_proxy(proxy_string):
     proxy_type, address = proxy_string.split("://")
     
@@ -194,13 +154,13 @@ def format_proxy(proxy_string):
         
     return proxy_dict, host
 
-def authenticate(proxy):
+def authenticate(email, password, proxy):
     proxy_config, ip_address = format_proxy(proxy)
     
     if proxy in proxy_tokens:
         return proxy_tokens[proxy], ip_address
         
-    login_data = {"email": email_input, "password": password_input}
+    login_data = {"email": email, "password": password}
     
     try:
         response = requests.post(login_endpoint, json=login_data, headers=login_headers, proxies=proxy_config)
@@ -229,11 +189,11 @@ def send_uptime_report(api_token, ip_addr, proxy):
             del proxy_tokens[proxy]
         print(f"{Fore.LIGHTCYAN_EX}[{datetime.now().strftime('%H:%M:%S')}]{Fore.RED} Failed to PING {Fore.MAGENTA}|{Fore.LIGHTYELLOW_EX} {ip_addr}: {err}{Style.RESET_ALL}")
 
-def process_proxy(proxy):
+def process_proxy(email, password, proxy):
     first_run = True
     while True:
         if first_run or proxy not in proxy_tokens:
-            api_token, ip_address = authenticate(proxy)
+            api_token, ip_address = authenticate(email, password, proxy)
             first_run = False
         else:
             api_token = proxy_tokens[proxy]
@@ -243,13 +203,12 @@ def process_proxy(proxy):
             proxy_config, _ = format_proxy(proxy)
             ip_info = get_ip_info(ip_address)
             
-            #connect_websocket(email_input, api_token)
             time.sleep(random.randint(60, 120))
             
-            submit_bandwidth(email_input, api_token, ip_info, proxy_config)
+            submit_bandwidth(email, api_token, ip_info, proxy_config)
             time.sleep(random.randint(60, 120))
             
-            get_and_submit_task(email_input, api_token, ip_info, proxy_config)
+            get_and_submit_task(email, api_token, ip_info, proxy_config)
             time.sleep(random.randint(60, 120))
             
             send_uptime_report(api_token, ip_address, proxy)
@@ -257,21 +216,46 @@ def process_proxy(proxy):
         
         time.sleep(10)
 
+def auto_refresh():
+    while True:
+        print(f"\n{Fore.LIGHTCYAN_EX}[{datetime.now().strftime('%H:%M:%S')}]{Fore.YELLOW} Refreshing Proxy List and Account...")
+        time.sleep(60)
+
 def main():
     print(f"\n{Style.BRIGHT}Starting ...")
     threads = []
-    for proxy in proxies_list:
-        thread = threading.Thread(target=process_proxy, args=(proxy,))
-        thread.daemon = True
-        threads.append(thread)
-        thread.start()
-        time.sleep(1)
     
-    print(f"{Fore.LIGHTCYAN_EX}[{datetime.now().strftime('%H:%M:%S')}]{Fore.GREEN} Bot started successfully!")
+    with open('accounts.txt', 'r') as f:
+        accounts = f.read().splitlines()
+    
+    with open('proxies.txt', 'r') as f:
+        proxies_list = f.read().splitlines()
 
-    # Wait for all threads to complete (they run indefinitely, so this keeps the main thread alive)
-    for thread in threads:
-        thread.join()
+    for account in accounts:
+        email, password = account.split(":")
+        
+        for proxy in proxies_list:
+            thread = threading.Thread(target=process_proxy, args=(email, password, proxy))
+            thread.daemon = True
+            threads.append(thread)
+            thread.start()
+            time.sleep(1)
+    
+    print(f"{Fore.LIGHTCYAN_EX}[{datetime.now().strftime('%H:%M:%S')}]{Fore.LIGHTCYAN_EX}[✓] DONE! Delay before next cycle. Not Stuck! Just wait and relax...{Style.RESET_ALL}")
+    
+    # Start auto-refresh thread
+    refresh_thread = threading.Thread(target=auto_refresh)
+    refresh_thread.daemon = True
+    refresh_thread.start()
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print(f"\n{Fore.YELLOW}Stopping ...")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"{Fore.RED}An error occurred: {str(e)}")
