@@ -1,1 +1,2 @@
-
+http://username:password@ip:port
+http://ip:port
