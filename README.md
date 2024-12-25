@@ -24,5 +24,7 @@ BlockMesh Network AutoBot is a Python-based automation script designed to mine B
    ```bash
    git clone https://github.com/mehdreaming/Blockmesh-Bot
    cd blockmesh-autobot
+   ```bash
    pip install -r requirements.txt
+   ```bash
    python blockmesh_autobot.py
